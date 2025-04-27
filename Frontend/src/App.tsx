@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import './App.css';
 import axios from 'axios';
 
+// Use the proxy configured in vite.config.ts
 const API_BASE_URL = '/api';
 
 function App() {
@@ -36,29 +37,29 @@ function App() {
       setIsDeploying(true);
       setDeploymentStatus('uploading');
       
-      // Start deployment process
+      // Update to match the backend API endpoint
       const deployResponse = await axios.post(`${API_BASE_URL}/deploy`, {
-        repoUrl: repoUrl.endsWith('.git') ? repoUrl : `${repoUrl}.git`,
+        repoLink: repoUrl.endsWith('.git') ? repoUrl : `${repoUrl}.git`,
       });
       
-      const { deploymentId } = deployResponse.data;
+      const { id: deploymentId } = deployResponse.data;
       
-      // Poll for deployment status
+      // Poll for deployment status - update to match backend endpoint
       setDeploymentStatus('building');
       const statusInterval = setInterval(async () => {
         try {
           const statusResponse = await axios.get(
-            `${API_BASE_URL}/deployment/${deploymentId}/status`
+            `${API_BASE_URL}/status?id=${deploymentId}`
           );
           
-          const { status, url, error } = statusResponse.data;
+          const { status } = statusResponse.data;
           
-          if (status === 'completed') {
+          if (status === 'deployed') {
             clearInterval(statusInterval);
             setDeploymentStatus('deployed');
             setDeploymentInfo({
               id: deploymentId,
-              url,
+              url: `https://${deploymentId}.vercel-clone.app`,
               status: 'deployed',
               repository: repoUrl,
               branch: 'main',
@@ -68,7 +69,7 @@ function App() {
           } else if (status === 'failed') {
             clearInterval(statusInterval);
             setDeploymentStatus('deployment-failed');
-            setError(error || 'Deployment failed');
+            setError('Deployment failed');
             setIsDeploying(false);
           }
         } catch (error) {
