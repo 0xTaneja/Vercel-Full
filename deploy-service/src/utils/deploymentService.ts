@@ -7,8 +7,8 @@ import dotenv from 'dotenv';
 // Load environment variables
 dotenv.config();
 
-// Define project root path for consistency with other files
-const PROJECT_ROOT = path.join(__dirname, '../..');
+// Define correct path to the Vercel service output folder
+const VERCEL_ROOT = path.join(__dirname, '../../../Vercel');
 
 const publisher = createClient();
 publisher.connect();
@@ -19,10 +19,31 @@ const s3 = new S3({
     endpoint: process.env.AWS_ENDPOINT,
 });
 
+// Helper function to determine content type based on file extension
+function getContentType(filePath: string): string {
+    const extension = path.extname(filePath).toLowerCase();
+    switch (extension) {
+        case '.html': return 'text/html';
+        case '.css': return 'text/css';
+        case '.js': return 'application/javascript';
+        case '.svg': return 'image/svg+xml';
+        case '.png': return 'image/png';
+        case '.jpg':
+        case '.jpeg': return 'image/jpeg';
+        case '.gif': return 'image/gif';
+        case '.ico': return 'image/x-icon';
+        case '.json': return 'application/json';
+        case '.txt': return 'text/plain';
+        case '.pdf': return 'application/pdf';
+        default: return 'application/octet-stream';
+    }
+}
+
 export async function copyFinalDist(id: string) {
     try {
-        // Use PROJECT_ROOT instead of __dirname
-        const folderPath = path.join(PROJECT_ROOT, 'output', id, 'dist');
+        // Look for dist folder in the Vercel output directory
+        const folderPath = path.join(VERCEL_ROOT, 'output', id, 'dist');
+        console.log(`Looking for dist folder at: ${folderPath}`);
         
         // Check if dist directory exists (some frameworks use different output directories)
         if (!fs.existsSync(folderPath)) {
@@ -32,10 +53,12 @@ export async function copyFinalDist(id: string) {
         }
         
         const allFiles = getAllFiles(folderPath);
+        console.log(`Found ${allFiles.length} files to upload`);
         
         // Process all uploads
         const uploadPromises = allFiles.map(file => {
-            return uploadFile(`dist/${id}/` + file.slice(folderPath.length + 1), file);
+            const uploadPath = `dist/${id}/` + file.slice(folderPath.length + 1);
+            return uploadFile(uploadPath, file);
         });
         
         // Wait for all uploads to complete
@@ -67,10 +90,17 @@ const getAllFiles = (folderPath: string) => {
 
 const uploadFile = async (fileName: string, localFilePath: string) => {
     const fileContent = fs.readFileSync(localFilePath);
+    const contentType = getContentType(localFilePath);
+    
+    console.log(`Uploading ${fileName} with content type: ${contentType}`);
+    
     const response = await s3.upload({
         Body: fileContent,
         Bucket: "vercel",
         Key: fileName,
+        ContentType: contentType,
+        CacheControl: 'public, max-age=31536000'
     }).promise();
+    
     return response;
 } 

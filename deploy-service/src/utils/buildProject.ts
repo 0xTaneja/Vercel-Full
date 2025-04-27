@@ -1,13 +1,15 @@
 import {exec} from 'child_process';
 import path from 'path';
 
-// Define project root path for consistency with other files
-const PROJECT_ROOT = path.join(__dirname, '../..');
+// Define correct path to the Vercel service output folder
+const VERCEL_ROOT = path.join(__dirname, '../../../Vercel');
 
 export function buildProject(id: string) {
     return new Promise((resolve) => {
-        // Use PROJECT_ROOT instead of __dirname to correctly locate the output directory
-        const outputPath = path.join(PROJECT_ROOT, 'output', id);
+        // Look for repositories in the Vercel output directory, not deploy-service
+        const outputPath = path.join(VERCEL_ROOT, 'output', id);
+        console.log(`Building project at: ${outputPath}`);
+        
         const child = exec(`cd ${outputPath} && npm install && npm run build`);
         
         child.stdout?.on('data', function(data) {
